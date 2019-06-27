@@ -1,0 +1,3 @@
+function varargout = multiplePlots(dataPlayer, varargin) %reads data from file 
+    dataPlayer = dataPlayer;
+    dataPlayer.ets.

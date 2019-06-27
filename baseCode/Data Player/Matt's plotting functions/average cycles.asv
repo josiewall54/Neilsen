@@ -1,0 +1,18 @@
+function handles = average_cycles(handles,action)
+
+% finds the ided_times in the window as displayed (the current channel),
+% then uses these times to find the averaged locomotor cycle.  Uses the the
+% ided times only really the first one (doesn't do single referent) to go
+% from onset to onset.  Assumes all cycles are consecutive here.
+
+current_times = handles.all_ided_times{handles.current_trace};
+onsets = current_times(:,1);
+ncycles = length(onsets) - 1;
+
+disp('extracting raw data')
+for ii = 1:ncycles
+    dat{ii} = get(handles.dat,[onsets(ii) onsets(ii+1)]);
+end
+
+for ii = 1:ncycles
+    

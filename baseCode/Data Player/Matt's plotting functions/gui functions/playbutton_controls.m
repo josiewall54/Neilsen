@@ -1,0 +1,49 @@
+function handles = playbutton_controls(handles,action,varargin)
+
+switch action
+    case 'playbutton'        
+        if handles.running   % if it's already running, then pressing play changes the direction
+            handles.playspeed = -handles.playspeed;   
+            if handles.playspeed < 0                
+                set(handles.play_button,'String','<');
+            else
+                set(handles.play_button,'String','>');
+            end                
+        else
+            handles.running = 1;   % declare that it's running
+            guidata(gcf,handles);   % update the handles on the screen to prevent reentry into this loop
+            set(handles.stop_button,'Enable','on');
+            stopflag = 0;
+            while (~stopflag)
+                handles = guidata(gcf);   % get the latest version of the handles structure
+                playspeed = handles.playspeed; 
+                width = handles.viewstop - handles.viewstart;  
+                step = width*playspeed;   % how much to advance on each update
+                midpoint = mean([handles.viewstop handles.viewstart]);
+                newmidpoint = midpoint + step;  % the new midpoint
+                handles.viewstart = round(newmidpoint - width/2);
+                handles.viewstop = round(newmidpoint + width/2);
+                handles = replot_data(handles);
+                guidata(gcf,handles);   % update the handles on the screen, before the pause
+
+                pause(.1)   % this allows the other callbacks to be processed 
+                drawnow
+
+                handles = guidata(gcf);   % get the latest version of the handles structure
+                enabled = get(handles.stop_button,'Enable');
+                stopflag = strcmp(enabled,'off');  % if it's off, then they've pressed the stop button
+
+            end
+            handles.running = 0;   % turn this off
+            guidata(gcf,handles);   % update the handles on the screen with this
+        end
+
+    case 'stopbutton'
+        set(handles.stop_button,'Enable','off');  % they pressed stop,
+        set(handles.play_button,'String','>');   % reset the play command to only be forward
+        handles.playspeed = abs(handles.playspeed);  % reset it to be forward as a default
+    case 'rewindbutton'  % change the speed
+        handles.playspeed = .9*handles.playspeed;
+    case 'fastforwardbutton'
+        handles.playspeed = 1.1*handles.playspeed;
+end

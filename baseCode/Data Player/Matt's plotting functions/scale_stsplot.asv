@@ -1,0 +1,162 @@
+function handles = scale_line(handles,index,gain)
+%function handles = scale_line(handles,index,gain)
+%
+%   Function to scale the lines in a plot of the type created by
+%   plot_matrix.  HANDLES is a structure with the information about the
+%   figure and current plot.  It needs the handles to the axis (, to the
+%   lines, and to the gain and offset values:
+%            handles.axishandle;
+%            handles.linehandles;
+%            handles.yoffset;
+%            handles.ygain;
+%            handles.oldygain;
+%            handles.oldyoffset;
+%
+%     INDEX specifies which line is the relevant one.
+%     METHOD can either be 'max', which means it should scale the channel
+%     to its maximum value in the display, or 'value', which means it
+%     should scale the channel according to the value given in
+%     handles.ygain
+%
+
+currax = handles.axishandle;
+nlines = length(handles.linehandles);
+
+handles.oldygain = handles.ygain;  % copy the current gains into the old ones
+
+
+xlim = get(handles.axishandle,'XLim');
+ylim = get(handles.axishandle,'YLim');
+winsize = (ylim(2)-ylim(1))/nlines;  % the size of the sub window that the line is plotted in
+ypos = nlines*winsize - (2*lineind-1)*winsize/2;  % position of the zero level for the current trace - should be the index number
+
+
+
+
+
+switch scalemeth
+    case 'max'
+        ydat = get(handles.linehandles(index),'Ydata');
+        mx = max(ydat); mn = min(ydat); avg = mean(ydat);
+        maxdy = max(mx-avg,avg-mn)/1.5;
+        if maxdy == 0
+            maxdy = 1;
+        end
+        datobj = getfield(ta,'dataobj');
+        scale = winsize./maxdy/2;   %  here is the scale now
+        if isa(datobj,'traceemg')
+            temp = getfield(datobj,'emgnorm');
+            if (length(temp) >= lineind) & temp(lineind) ~= -1  %  if there's a valid scale, then use it
+                scale = temp(lineind);
+            end
+        end
+        offset = 0;
+        oldscale = 1;   % the values to be used in this iteration
+        ta.realoffset(lineind) = avg-ypos;   % the real values to be saved for the next calls
+        ta.real2dispscale(lineind) = 1;
+
+        plot([xlim(1) xlim(2)],[ypos-winsize/4 ypos-winsize/4],'k:');
+        plot([xlim(1) xlim(2)],[ypos ypos],'k:');
+        plot([xlim(1) xlim(2)],[ypos+winsize/4 ypos+winsize/4],'k:');
+
+
+
+if narg == 2  % they haven't sent in a scale, so get it from the object
+    oldscale = ta.scalefactor(lineind);
+    offset = ta.offset(lineind);
+    realoffset = ta.realoffset(lineind);    
+    val = get(gcbo,'Value');  % get the value off of the callback object  ?? I'm assuming it's a slider
+    if val < 0    % check if it's up or down, and use a constant scaling factor
+        scale = .8*oldscale;
+        set(gcbo,'Value',-1);  % reset the value to 0, NB this only works because the zoomy slider steps by +-2
+    else
+        scale = 1.25*oldscale;
+        set(gcbo,'Value',1);  % reset the value to 0
+    end
+else     % if it's 'init' then set the realscale and realoffset parameters for maximal deviation
+    scale = varargin{1};  % pull off the 1st argument
+    switch class(scale)
+    case 'double'  % they've sent in a scale explicitly
+        scale = scale;
+        oldscale = ta.scalefactor(lineind);
+        offset = ta.offset(lineind);
+        realoffset = ta.realoffset(lineind);    
+        if oldscale == 1   % this is the first call to the figure
+            plot([xlim(1) xlim(2)],[ypos-winsize/4 ypos-winsize/4],'k:');
+            plot([xlim(1) xlim(2)],[ypos ypos],'k:');
+            plot([xlim(1) xlim(2)],[ypos+winsize/4 ypos+winsize/4],'k:');     
+        end
+        
+    case 'char'  % they've asked zoomy to figure out the correct scale
+        if strcmp(scale,'init')   %  find the maximum deviation for each trace
+            ydat = get(ta.linehandles(lineind),'Ydata');
+           mx = max(ydat); mn = min(ydat); avg = mean(ydat);
+%             mx = 5;  mn = -5; avg = 0;
+            maxdy = max(mx-avg,avg-mn)/1.5;            
+            if maxdy == 0
+                maxdy = 1;
+            end
+            datobj = getfield(ta,'dataobj');
+            scale = winsize./maxdy/2;   %  here is the scale now
+            if isa(datobj,'traceemg')
+                temp = getfield(datobj,'emgnorm');
+                if (length(temp) >= lineind) & temp(lineind) ~= -1  %  if there's a valid scale, then use it
+                    scale = temp(lineind);    
+                end
+            end
+            offset = 0;
+            oldscale = 1;   % the values to be used in this iteration
+            ta.realoffset(lineind) = avg-ypos;   % the real values to be saved for the next calls
+%             ta.realoffset(lineind) = 0;   % the real values to be saved for the next calls
+            ta.real2dispscale(lineind) = 1;
+
+            plot([xlim(1) xlim(2)],[ypos-winsize/4 ypos-winsize/4],'k:');
+            plot([xlim(1) xlim(2)],[ypos ypos],'k:');
+            plot([xlim(1) xlim(2)],[ypos+winsize/4 ypos+winsize/4],'k:');     
+        else
+            disp('the scale you entered doesn''t make sense');
+            return    
+        end
+    otherwise
+        disp('the scale you entered doesn''t make sense');
+        return
+    end
+end    
+
+real2disp = 1;
+xpos = xlim(2);  % for the scale ticks
+
+% scale the data in the plots
+temp = get(ta.linehandles(lineind),'Ydata');
+tmn = mean(temp);
+temp = temp - tmn;   % mny is the display mean- so this rezeros the trace
+fac = scale/oldscale;
+newoff = (winsize*(offset))/2;   % the offset of the mean value is in the middle
+newoff = offset;
+temp = temp/real2disp*fac + newoff + ypos;    % scale the trace and set the new offset
+set(ta.linehandles(lineind),'Ydata',temp);
+
+% now put in the scaletext to the right
+if (length(ta.scaletexthandles) >= lineind*3) & ishandle(ta.scaletexthandles(lineind*3)) % if it's there already, delete it
+    delete(ta.scaletexthandles([lineind*3-2 lineind*3-1 lineind*3]));
+end
+
+realcenter = (-newoff/scale/real2disp + ta.realoffset(lineind));
+h = text(xpos,ypos-winsize/4,num2str(-(winsize/4)/real2disp/scale + realcenter));
+set(h,'FontSize',7,'Parent',ta.axishandle);
+ta.scaletexthandles(lineind*3-2) = h;
+h = text(xpos,ypos,num2str(realcenter));
+set(h,'FontSize',7,'Parent',ta.axishandle);
+ta.scaletexthandles(lineind*3-1) = h;
+h = text(xpos,ypos+winsize/4,num2str((winsize/4)/real2disp/scale + realcenter));
+set(h,'FontSize',7,'Parent',ta.axishandle);
+ta.scaletexthandles(lineind*3) = h;
+
+% update the bookkeeping in the file
+ta.scalefactor(lineind) = scale;
+ta.offset(lineind) = newoff;
+ta.real2dispscale(lineind) = 1/scale;   % save this to get back to the real data
+
+if nargout == 1
+    varargout{1} = ta;
+end

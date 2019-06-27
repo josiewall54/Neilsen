@@ -1,0 +1,132 @@
+classdef VideoData
+    
+    properties
+        fileName; %file name of the video to be viewed
+        numberOfFrames = 0; %Total number of frames in the video stream
+        duration; %Total length of file in seconds
+        frameRate; %Frame rate of the video in frames per second
+        videoFormat; %String indicating the video format as it is represented in MATLAB, e.g., RGB24
+        selectedFrames; %Selected frames that have been separated (deinterlaced)
+        video; %mmreader object
+        width; %frame width (pixels)
+        height; %(frame height (pixels)
+        nFirstFrame; %firstFrame is the first frame number on the video being viewed
+        nLastFrame;
+        scale;
+        offset;
+    end
+
+    methods
+        function vData = VideoData(filename, varargin)
+            %created an mmreader object and initializes values of video properties
+            vData.video = mmreader(filename); %create mmreader object
+            %%%%junk: video = video@mmreader(filename);
+            vData.numberOfFrames = vData.video.NumberOfFrames*2; %assign variable numberOfFrames (times 2 to account for deinterlacing)
+            vData.duration = vData.video.Duration; %assign variable duration
+            vData.videoFormat = vData.video.VideoFormat; %assign variable videoFormat
+            [path,path,ext] = fileparts(vData.Name);
+            if strcmp(vData.videoFormat,'ASF')
+                
+            vData.frameRate = vData.video.FrameRate*2; %assign variable frameRate
+            vData.width = vData.video.width; %assign variable witdth
+            vData.height = vData.video.height/2; %assign variable height (divide by 2 to account for deinterlacing)
+            %[scale, offset] = 
+            pulse = varargin{1};
+            frame = varargin{2};
+            vData = vData.getScaleAndOffset(pulse, frame);
+            vData.nFirstFrame = vData.getPulseFromFrame(0); %firstFrame is the first frame number on the video being viewed
+            vData.fileName = filename; %file name of the video to be viewed
+        end
+        
+        function frames = deinterlace(obj, frameList)
+            %returns a 4D array of deinterlaced frames
+            rawFrames = read(obj.video, frameList); %pass in mmreader obj (video) and frames to be read. Read in video frames
+            nbRawFrames = size(rawFrames, 4); %retrieve number of frames to be read in
+            %%%%junk: nbFrames = 2*nbOrigFrames; %double the number of frames to account for deinterlacing
+            frames = zeros(obj.height, obj.width, 3, nbRawFrames*2,'uint8'); %create array of zeros
+            ind1 = 2:2:(obj.height*2); %ind1 is each even row
+            ind2 = 1:2:(obj.height*2); %ind2 is each odd row
+            frames(:,:,:,1:2:(nbRawFrames*2)) = rawFrames(ind1,:,:,:); %add all even rows to frames structure
+            frames(:,:,:,2:2:(nbRawFrames*2)) = rawFrames(ind2,:,:,:); %add all even rows to frames structure
+            %%%%junk: obj.selectedFrames = frames; %assign selectedFrames for the object
+            %%%%junk: mov = immovie(frames);%returns the movie structure array mov from the images in the multiframe indexed image X with the colormap map
+            %%%%junk: implay(mov); %open movie player
+        end
+        function frames = selectFrames(obj, frameList)
+            %returns a 4D array of deinterlaced frames.
+            %called in DataPlayer by the plotFrame functions (plotFrame, plotNextFrame, and plotPreveiousFrame)
+            %determines the number of frames, whether the first frame is
+            %even or odd, and calls the deinterlace function
+            
+            %though only one frame is ever passed to selectFrames from the
+            %plotFrame functions of DataPlayer, it is designed too also
+            %accept more than one frame
+            firstFrame = frameList(1);
+            if (firstFrame > obj.numberOfFrames)
+                firstFrame = obj.numberOfFrames;
+            end
+            if (size(frameList)==[1,1])
+                nbFrames = 1;
+            else
+                lastFrame = frameList(2);
+                if (lastFrame > obj.numberOfFrames)
+                    lastFrame = obj.numberOfFrames;
+                end
+                nbFrames = lastFrame-firstFrame+1;
+            end
+            tempFrameList = ceil(frameList/2);%get the original (interlaced frames)
+            offset = 1+(mod(firstFrame,2)==0);%we want to get 2nd deinterlaced frame if firstFrame is even, 1st if its odd
+            frames = obj.deinterlace(tempFrameList);
+            %extract only requested frames
+            frames = frames(:,:,:,linspace(offset,offset+nbFrames-1,nbFrames));
+        end
+        
+        function frame = selectFrame(obj, frameNb)
+            %returns a 3D array (a frame)
+            blackFrame = zeros(obj.height, obj.width, 3, 1,'uint8'); %create array of zeros
+            if (frameNb < 1)
+                frame = blackFrame;
+                return
+            end
+            if (frameNb > obj.numberOfFrames)
+                frame = blackFrame;
+                return
+            end
+            tempFrameList = ceil(frameNb/2);%get the original (interlaced frames)
+            offset = 1+(mod(frameNb,2)==0);%we want to get 2nd deinterlaced frame if firstFrame is even, 1st if its odd
+            frame = obj.deinterlace(tempFrameList);
+            %extract only requested frames
+            frame = frame(:,:,:,linspace(offset,offset,1));
+        end
+        
+        function time = getTimeFromFrame(obj, frameNb)
+            %returns the amount of time elapsed between the first frame and
+            %the frame of interest
+            time = (frameNb-1)/obj.frameRate;
+        end
+        
+        function frameNb = getFrameFromSample(obj, sts, sampleNb)
+            sampleNumberOfFirstFrameInVideo =(sts.firstPulseInFile + (obj.nFirstFrame-1)*sts.pulsePeriod);
+            nbOfSamplesSinceFirstFrame = sampleNb - sampleNumberOfFirstFrameInVideo;
+            time = nbOfSamplesSinceFirstFrame*sts.period;
+            frameNb = floor(time*obj.frameRate) + 1;
+        end
+        
+        function vData = getScaleAndOffset(vData ,pulseNumber, frameNumber)
+            scaleAndOffset = polyfit(pulseNumber, frameNumber, 1);
+            vData.scale = scaleAndOffset(1);
+            vData.offset = scaleAndOffset(2);
+        end
+        
+        function frameNb = getFrameFromPulse(obj, pulseNb) 
+            frameNb = obj.scale*pulseNb + obj.offset;
+        end
+        
+        function pulseNb = getPulseFromFrame(obj, frameNb)
+            pulseNb = (frameNb - obj.offset)/obj.scale;
+        end
+            
+        
+        
+    end
+end

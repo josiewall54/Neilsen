@@ -1,0 +1,77 @@
+function boxplot_compareDecoders3(v_HC,v_N2E2P,v_N2P,v_N2PLPF,title_name,m_units)
+
+% Boxplot to compare a feature (time to reach a target, length to reach a target,...)   
+% for 4 different Decoders 
+% v_HC is a nxt vector: n is number of trials, could contain zeros
+%                       t is the number of targets that should be the same
+%                       for all 4 decoders
+% title_name: title of the box_plot figure.
+% m_units : measure units of the analized variable, e.g. : time (sec)
+% Updated 02-10-12 ...  by Jose
+
+if(size(v_HC,2)==size(v_N2E2P,2) && size(v_HC,2)==size(v_N2P,2))
+    class1 = [];
+    class2 = [];
+    data = [];
+    p = zeros(size(v_HC,2)+1,1);
+    for i=1:size(v_HC,2)
+        a = v_HC(v_HC(:,i)~=0,i);
+        b = v_N2E2P(v_N2E2P(:,i)~=0,i);
+        c = v_N2P(v_N2P(:,i)~=0,i);
+        d = v_N2PLPF(v_N2PLPF(:,i)~=0,i);
+
+        aux_data = [a;b;c;d];
+        g1 = [repmat('1',length(a),1);repmat('2',length(b),1);repmat('3',length(c),1);repmat('4',length(d),1)];
+        g2 = [repmat(['            Target',char(48+i)],size(g1,1),1)];
+
+        class1 = [class1;g1];
+        class2 = [class2;g2];
+        data = [data;aux_data];      
+        
+        p(i) = anova1(aux_data,g1,'off');
+%         [D P] = manova1(aux_data,g1,0.05)   
+    end    
+
+    % Get average for all trials per decoder
+    % sum(double(class1),2) ... converting to get double values of
+    D1_d = sum(double('1'));
+    D2_d = sum(double('2'));
+    D3_d = sum(double('3'));
+    D4_d = sum(double('4'));
+    all_HC  = data(sum(double(class1),2)==D1_d); % get all trials for HC
+    all_FES = data(sum(double(class1),2)==D2_d); % get all trials for FES
+    all_N2F = data(sum(double(class1),2)==D3_d); % get all trials for N2F
+    all_N2FLPF = data(sum(double(class1),2)==D4_d); % get all trials for N2FLPF
+    data = [data;all_HC;all_FES;all_N2F;all_N2FLPF];
+
+    g1 = [repmat('1',length(all_HC),1);repmat('2',length(all_FES),1);...
+            repmat('3',length(all_N2F),1);repmat('4',length(all_N2FLPF),1)];
+    g2 = [repmat('            Average',size(g1,1),1)];
+    class1 = [class1;g1];
+    class2 = [class2;g2];
+
+    data_anova = [all_HC;all_FES;all_N2F];
+    p(end) = anova1(data_anova,g1,'off');
+    
+%     [D P] = manova1(data_anova,g1,0.05);
+    
+    figure
+    boxplot(data,{class2,class1},'colors',repmat('brkm',1,8),'factorgap',[15 5],...
+        'labelverbosity','minor','factorseparator',[1])
+    title(sprintf(title_name));
+    ylabel(m_units);
+%     
+%     % text p-values in boxplot
+%     text(0.5,3,['p = ',num2str(p(1),'%.3e')],'FontSize',10);
+%     text(9.4,3,['p = ',num2str(p(2),'%.3e')],'FontSize',10);
+%     text(19,3,['p = ',num2str(p(3),'%.3e')],'FontSize',10);
+%     text(28.5,3,['p = ',num2str(p(4),'%.3e')],'FontSize',10);
+%     text(38,3,['p = ',num2str(p(5),'%.3e')],'FontSize',10);
+%     text(48,3,['p = ',num2str(p(6),'%.3e')],'FontSize',10);
+%     text(57,3,['p = ',num2str(p(7),'%.3e')],'FontSize',10);
+%     text(66,3,['p = ',num2str(p(8),'%.3e')],'FontSize',10);
+%     text(75,3,['p = ',num2str(p(9),'%.3e')],'FontSize',10);
+    
+else
+    disp('features of the decoders should be for the same number of targets');
+end

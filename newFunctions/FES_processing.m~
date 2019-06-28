@@ -1,0 +1,47 @@
+% cd('/Users/josephinewallner/Desktop/LabWork/Nielsen/RatData/FES/N30')
+% 
+% stimFile = '19-01-24_stim.xlsx';
+% noStimFile = '19-01-24_nostim.xlsx';
+% 
+% stimData = importVicon(stimFile);
+% noStimData = importVicon(noStimFile);
+
+names = stimData.names;
+for i = 1:7
+    foreMarker = names{i};
+    foreDataStimMaster = stimData.y(:,i);
+    foreDataNoStimMaster = noStimData.y(:,i);
+    lStim = length(foreDataStimMaster);
+    lNoStim = length(foreDataNoStimMaster);
+    for j = 1:3
+        
+        hindMarker = names{j+7};
+        hindDataStim = stimData.y(:,j+7);
+        hindDataNoStim = noStimData.y(:,j+7);
+        
+        allNanStim = vertcat(find(isnan(foreDataStimMaster)), find(isnan(hindDataStim)));
+        idxStim = setdiff(1:lStim, allNanStim);
+        
+        allNanNoStim = vertcat(find(isnan(foreDataNoStimMaster)), find(isnan(hindDataNoStim)));
+        idxNoStim = setdiff(1:lNoStim, allNanNoStim);
+        
+        foreDataStim = foreDataStimMaster(idxStim);
+        hindDataStim = hindDataStim(idxStim);
+        
+        foreDataNoStim = foreDataNoStimMaster(idxNoStim);
+        hindDataNoStim = hindDataNoStim(idxNoStim);
+        
+        loc = 3 * i - 3 + j;
+        
+        tmp = corrcoef(foreDataNoStim, hindDataNoStim);
+        corr(loc,1) = tmp(2);
+        
+        tmp = corrcoef(foreDataStim, hindDataStim);
+        corr(loc,2) = tmp(2);
+        
+        %labels(loc) = [foreMarker ' / ' hindMarker]; 
+    end
+end
+
+
+
